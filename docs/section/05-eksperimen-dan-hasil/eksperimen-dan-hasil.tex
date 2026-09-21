@@ -1,0 +1,57 @@
+\section{EKSPERIMEN DAN HASIL}
+
+\subsection{Rancangan Eksperimen}
+Seluruh evaluasi dilakukan pada data latih melalui prediksi luar lipatan (OOF) dari lima lipatan \textit{StratifiedGroupKFold} dengan \textit{seed} 42, sehingga setiap angka yang dilaporkan berasal dari baris yang tidak pernah dilihat model saat pelatihan. Metrik utama adalah \textit{Macro F1} sesuai ketentuan kompetisi, dengan AUC sebagai metrik sekunder yang tidak bergantung pada ambang keputusan. Sebagai acuan bawah, baseline naif yang selalu memprediksi \textit{Sesuai} hanya mencapai \textit{Macro F1} 0{,}4737, sehingga setiap perbaikan di atas nilai tersebut harus berasal dari kemampuan model mengenali kelas minoritas, bukan sekadar mengikuti distribusi kelas.
+
+Eksperimen berjalan pada Python 3.11 dengan scikit-learn 1.7, LightGBM 4.6, XGBoost 3.2, CatBoost 1.2, gensim 4.4, dan PyTorch 2.9 (CUDA) pada GPU NVIDIA RTX 3050 dan CPU delapan utas. Pembangunan sumber daya korpus memakan 267 detik, keseluruhan lima blok fitur untuk 18.000 baris selesai dalam total 573 detik, pelatihan cross encoder tanpa data eksternal memakan sekitar 366 detik untuk lima lipatan, dan varian NN-EXT dengan 74.778 pasangan latih tambahan memakan sekitar 2.056 detik. Ini menegaskan bahwa seluruh sistem tetap moderat secara komputasi.
+
+\subsection{Karakteristik Data dan Implikasinya}
+Analisis eksplorasi mengonfirmasi tiga karakteristik yang membentuk rancangan pada Bagian IV. Pertama, distribusi kelas timpang 9{,}02 banding satu (12.960 berlabel \textit{Sesuai}, 1.437 \textit{Tidak Sesuai}) sehingga akurasi tidak lagi informatif dan optimasi harus langsung menarget \textit{Macro F1}. Kedua, seperti ditunjukkan Gambar~\ref{fig:overlap}, rerata \textit{overlap} leksikal kelas \textit{Sesuai} (0{,}796) dan \textit{Tidak Sesuai} (0{,}749) nyaris tidak terpisahkan; 954 baris negatif (66{,}4\%) justru memiliki \textit{overlap} di atas 0{,}7. Hal ini membuktikan bahwa pendekatan kemiripan kata sederhana akan gagal pada mayoritas kasus sulit dan menjadi justifikasi utama bagi fitur penyelarasan, pemeringkatan rival, dan \textit{cross encoder}. Ketiga, sebanyak 44{,}5\% isi dipakai oleh lebih dari satu judul dan hanya terdapat 3 pasangan duplikat persis, kondisi yang menjadi dasar kuat perbandingan berpasangan. Dengan demikian, keputusan kesesuaian sebaiknya tidak diambil secara mutlak, melainkan dibandingkan terhadap judul-judul rival yang memperebutkan isi yang sama.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{public/eda/overlap_dist.pdf}
+    \caption{Distribusi \textit{overlap} leksikal judul terhadap isi per kelas. Garis putus-putus menandai rerata tiap kelas (0{,}796 vs 0{,}749). Dua distribusi saling tumpang-tindih pada daerah 0{,}7--0{,}9 tempat mayoritas negatif sulit berada, sehingga kemiripan kata saja tidak memadai sebagai pembeda kelas.}
+    \label{fig:overlap}
+\end{figure}
+
+\subsection{Hasil Komponen Model}
+Tabel~\ref{tab:results} merangkum kinerja tiap komponen pada OOF. Jalur neural dilaporkan hanya pada AUC karena perannya bukan pengambil keputusan mandiri, melainkan penyumbang fitur skor (\texttt{nn\_gru400} dan \texttt{nn2\_c}) bagi ensemble GBDT.
+
+\begin{table}[t]
+    \caption{Hasil evaluasi OOF tiap komponen dan gabungan final. Ambang dilaporkan untuk komponen yang menjadi pengambil keputusan.}
+    \label{tab:results}
+    \centering
+    \small
+    \begin{tabular}{@{}lccc@{}}
+        \toprule
+        Komponen                          & AUC               & \textit{Macro F1} & Ambang   \\
+        \midrule
+        LightGBM \textit{seed} 0          & 0{,}9475          & 0{,}8682          & 0{,}5882 \\
+        LightGBM \textit{seed} 1          & 0{,}9437          & 0{,}8693          & 0{,}6397 \\
+        XGBoost \textit{seed} 0           & 0{,}9446          & 0{,}8666          & 0{,}6391 \\
+        XGBoost \textit{seed} 1           & 0{,}9422          & 0{,}8690          & 0{,}7266 \\
+        CatBoost \textit{seed} 0          & 0{,}9487          & 0{,}8671          & 0{,}6793 \\
+        CatBoost \textit{seed} 1          & \textbf{0{,}9502} & \textbf{0{,}8753} & 0{,}6474 \\
+        \addlinespace[2pt]
+        Cross encoder BiGRU               & 0{,}7164          & --                & --       \\
+        NN-EXT (+CLICK-ID)                & 0{,}7398          & --                & --       \\
+        \addlinespace[2pt]
+        Rerata ensemble GBDT              & \textbf{0{,}9504} & \textbf{0{,}8728} & 0{,}6372 \\
+        \textbf{Blend final terkalibrasi} & --                & --                & 0{,}7675 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Tiga pola terbaca dari hasil tersebut. Pertama, rata-rata keenam anggota GBDT (AUC 0{,}9504) stabil melampaui hampir seluruh anggota individualnya. Ia hanya dapat dikalahkan secara tipis oleh CatBoost \textit{seed} 1 pada \textit{Macro F1} (0{,}8753) namun unggul pada AUC. Ini konsisten dengan premis keragaman pada Bagian IV bahwa galat antar-anggota tidak berkorelasi sempurna sehingga perataan menekan variansi. Kedua, ambang optimal tiap anggota berpencar antara 0{,}59 hingga 0{,}73, jauh di bawah proporsi kelas mayoritas 0{,}90. Tanpa penurunan ambang, model akan hampir selalu memprediksi kelas mayoritas dan \textit{F1} kelas minoritas runtuh seperti pada baseline naif. Ketiga, proporsi prediksi negatif pada data uji adalah 7{,}72\% (278 dari 3.603 baris) terhadap proporsi kelas minoritas sebenarnya 9{,}98\%, indikator bahwa ambang blend final berhasil memulihkan sensitivitas kelas minoritas tanpa menenggelamkan presisi.
+
+Dua jalur neural juga saling melengkapi secara terukur. Perhatikan bahwa penambahan data eksternal CLICK-ID menaikkan AUC cross encoder dari 0{,}7164 menjadi 0{,}7398. Skor AUC kedua jalur tampak moderat secara mutlak, namun keduanya dikonsumsi sebagai fitur oleh GBDT sehingga yang dibutuhkan bukan kinerja tertinggi melainkan sinyal yang berbeda dari fitur tabular.
+
+Pemisahan audit \textit{bebas vs berkembaran} memberikan bukti langsung peran blok DUP/NDP. Dapat terlihat bahwa skor AUC pada 9.120 baris yang isinya tidak dipakai judul lain adalah 0{,}8469, sementara pada baris berkembaran mencapai 0{,}9920. Selisih yang besar ini menunjukkan bahwa ketika struktur korpus memungkinkan perbandingan antar-judul rival.  Sistem secara praktis dapat mengenali ketidaksesuaian secara hampir sempurna dan sebagian besar kekukuhan sistem justru berasal dari mekanisme perbandingan berpasangan.
+
+\subsection{Analisis Komponen dan Ablasi}
+Pada konfigurasi final, presisi kelas \texttt{Tidak Sesuai} mencapai 0{,}7602 dengan recall 0{,}7543, sementara kelas \texttt{Sesuai} mencapai presisi 0{,}9728 dan recall 0{,}9736 dengan akurasi keseluruhan 0{,}9517. Dari 1.437 negatif asli, 1.083 berhasil dideteksi. Analisis per subset memperlihatkan letak kesulitan yang tersisa. Pada 954 negatif ber-\textit{overlap} tinggi, \textit{Macro F1} subset hanya mendapatkan skor 0{,}4267 dan pada 278 positif ber-\textit{overlap} rendah, model hanya mendapatkan skor 0{,}4674. Dengan kata lain, kesalahan terkonsentrasi hampir seluruhnya pada segmen yang distribusi leksikalnya melawan labelnya, persis seperti batas atas kemampuan sistem jika tanpa menggunakan bobot pralatih.
+
+Beberapa keputusan desain terkonfirmasi penting melalui pengamatan selama pengembangan. Potongan isi 200 token konsisten antara pelatihan dan inferensi terbukti krusial. Varian yang memakai 400 token pada pelatihan menurunkan kualitas OOF, sehingga konsistensi ruang input lebih bernilai daripada cakupan konteks yang lebih panjang. Generator korupsi sintetis berperan ganda, yaitu untuk memperkaya kelas minoritas dan menanamkan sensitivitas terhadap tipologi kesalahan nyata (seperti pertukaran entitas, negasi, permutasi) yang tidak cukup terwakili 1.437 contoh asli. Kalibrasi Platt sebelum \textit{blending} juga diperlukan karena tiga sumber skor berada pada ruang berbeda yang berasal dari probabilitas terkalibrasi GBDT, sigmoid cross encoder tanpa data eksternal, dan sigmoid NN-EXT. Tanpa penyamaan skala, bobot $w$ dapat kehilangan makna sehingga perlu utnuk disetarakan.
+
+Dari sisi kesalahan, contoh \texttt{Tidak Sesuai} yang melompat topik relatif mudah dikenali karena margin temu kembali dan fitur dukungan langsung bernilai negatif. Kesalahan yang tersisa terkonsentrasi pada negatif sulit yang hanya berbeda pada satu tokoh, satu angka, atau satu konteks peristiwa. Segmen yang ditarget adalah blok ALG, fitur \textit{cloze}, dan \textit{cross encoder}, namun kedepannya perluasan dari segmen-segmen ini bisa menjadi ruang terbuka bagi pengembangan berikutnya.

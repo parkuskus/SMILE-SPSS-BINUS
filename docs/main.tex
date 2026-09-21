@@ -1,0 +1,140 @@
+
+
+\documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % Comment this line out
+                                                          % if you need a4paper
+%\documentclass[a4paper, 10pt, conference]{ieeeconf}      % Use this line for a4
+                                                          % paper
+
+\IEEEoverridecommandlockouts                              % This command is only
+                                                           % needed if you want to
+                                                           % use the \thanks command
+\overrideIEEEmargins
+% --- dari https://tex.stackexchange.com/q/324636 : center third author ---
+\makeatletter
+\newcommand{\linebreakand}{%
+  \end{@IEEEauthorhalign}%
+  \hfill\mbox{}\par
+  \mbox{}\hfill\begin{@IEEEauthorhalign}%
+}
+\makeatother
+% See the \addtolength command later in the file to balance the column lengths
+% on the last page of the document
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{changepage}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+\usepackage{everypage}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\DeclareMathOperator*{\argmin}{argmin} % or {argmin} if you want no space
+\DeclareMathOperator*{\argmax}{argmax}
+\usepackage{titlesec}
+\usepackage{algorithm}
+\usepackage{float}
+\usepackage{dsfont}
+\usepackage{algpseudocode}
+\usepackage{caption}
+\usepackage{booktabs}
+\titlespacing{\section}{0pt}{*1}{*1.5}
+\titlespacing{\subsection}{0pt}{*0.5}{*0.3}
+\AddEverypageHook{%
+	\begin{tikzpicture}[remember picture, overlay]
+		\node[anchor=south west, xshift=1cm, yshift=0.5cm] at (current page.south west) {Makalah Penyisihan Data Analysis Competition (DAC) IFEST 2026};
+		\node[anchor=south east, xshift=-1cm, yshift=0.5cm] at (current page.south east) {\thepage};
+	\end{tikzpicture}
+}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=red!30]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=blue!30]
+\tikzstyle{decision} = [diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=green!30]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{etoolbox}
+\usepackage[skip=5pt]{caption}  % Default skip is around 10pt
+
+\setlength{\textfloatsep}{10pt} % Mengatur jarak figure di atas/bawah halaman (default biasanya 20pt)
+\setlength{\intextsep}{10pt}    % Mengatur jarak figure di tengah teks (default biasanya 12pt)
+
+% Patch agar caption tidak di tengah
+\makeatletter
+\patchcmd{\lst@MakeCaption}{\centering}{}{}{}
+\makeatother
+
+\lstset{
+	language=Python,
+	basicstyle=\ttfamily\small,
+	keywordstyle=\color{blue},
+	stringstyle=\color{red},
+	commentstyle=\color{gray},
+	numbers=left,
+	numberstyle=\tiny,
+	numbersep=-10pt,
+	frame=single,
+	breaklines=true,
+	showstringspaces=false,
+	xleftmargin=10pt,
+	framexleftmargin=-20pt
+}
+
+
+
+
+% The following packages can be found on http:\\www.ctan.org
+%\usepackage{graphics} % for pdf, bitmapped graphics files
+%\usepackage{epsfig} % for postscript graphics files
+%\usepackage{mathptmx} % assumes new font selection scheme installed
+%\usepackage{mathptmx} % assumes new font selection scheme installed
+%\usepackage{amsmath} % assumes amsmath package installed
+%\usepackage{amssymb}  % assumes amsmath package installed
+
+\title{\LARGE \bf
+HIDRA (Headline Incongruity Detection with Rival-paired Monotonic Alignment): Ensemble Fitur Penyelarasan Monoton dan Perbandingan Rival Berpasangan untuk Klasifikasi Kesesuaian Judul dan Isi Berita Indonesia
+}
+
+
+\author{
+\authorblockN{Muhammad Aufar Rizqi Kusuma - 13524061}
+\authorblockA{Program Studi Teknik Informatika\\
+Sekolah Teknik Elektro dan Informatika\\
+Institut Teknologi Bandung, Bandung 40132\\
+\small E-mail: \href{mailto:13524061@std.stei.itb.ac.id}{13524061@std.stei.itb.ac.id}}
+\and
+\authorblockN{Kurt Mikhael Purba - 13524065} % TODO: ganti nama \& NIM
+\authorblockA{Program Studi Teknik Informatika\\
+Sekolah Teknik Elektro dan Informatika\\
+Institut Teknologi Bandung, Bandung 40132\\
+\small E-mail: \href{mailto:13524065@std.stei.itb.ac.id}{13524065@std.stei.itb.ac.id}}
+\linebreakand
+\authorblockN{Mochamad Fachri Alfaridzi - 13525128} % TODO: ganti nama \& NIM
+\authorblockA{Program Studi Teknik Informatika\\
+Sekolah Teknik Elektro dan Informatika\\
+Institut Teknologi Bandung, Bandung 40132\\
+\small E-mail:\href{mailto:13525128@std.stei.itb.ac.id}{13525128@std.stei.itb.ac.id}}
+}
+
+\begin{document}
+
+
+
+\maketitle
+\thispagestyle{empty}
+\pagestyle{empty}
+
+
+
+\input{section/01-abstrak/abstrak.tex}
+\input{section/02-pendahuluan/pendahuluan.tex}
+\input{section/03-landasan-teori/landasan-teori.tex}
+\input{section/04-metodologi/metodologi.tex}
+\input{section/05-eksperimen-dan-hasil/eksperimen-dan-hasil.tex}
+\input{section/06-kesimpulan/kesimpulan.tex}
+\input{section/07-daftar-pustaka/daftar-pustaka.tex}
+
+\end{document}
