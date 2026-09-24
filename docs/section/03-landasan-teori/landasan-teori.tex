@@ -1,10 +1,69 @@
 \section{LANDASAN TEORI}
-\textbf{Headline Incongruity Detection (HID)}. HID didefinisikan sebagai persoalan menilai apakah informasi utama pada judul berita secara faktual didukung oleh isi berita yang menyertainya. Persoalan ini berbeda dari deteksi \textit{clickbait}, yang berfokus pada judul provokatif atau sensasional terlepas dari kebenarannya \cite{chesney17}, karena HID menuntut penilaian terhadap hubungan referensial antara dua unit teks, mendekati kerangka \textit{textual entailment} dan identifikasi parafrasa. Riset awal memperlakukan HID sebagai persoalan klasifikasi berbasis fitur buatan tangan, sementara riset lanjutan bergeser ke representasi semantik yang dipelajari dari data \cite{yoon21, bourgonje17}. Pada konteks bahasa Indonesia, kajian menunjukkan pola kegagalan yang serupa dengan bahasa Inggris, bahkan dengan tantangan tambahan berupa morfologi aglutinatif dan keterbatasan sumber daya berlabel \cite{william20, surianto26}. Kesamaan lintas bahasa ini menegaskan bahwa akar persoalan HID bukan pada bahasa tertentu, melainkan pada keterbatasan mendasar ukuran kemiripan permukaan dalam menangkap perubahan makna.
 
-\textbf{\textit{Vector Space Model} \& \textit{Lexical Similarity}}.
-Model ruang vektor dengan pembobotan TF-IDF \cite{salton88} dan ukuran himpunan seperti Jaccard mengasumsikan teks yang berbagi kosakata membicarakan hal yang sama, dan terbukti menjadi \textit{baseline} kuat pada deteksi sikap berita \cite{riedel17}, tetapi rapuh terhadap pertukaran entitas atau angka yang mempertahankan kata yang sama. Hipotesis distribusional, bahwa kata pada konteks serupa memiliki makna berdekatan \cite{harris54}, mendasari \textit{Word2Vec} yang mempelajari vektor kata dari korpus tanpa label eksternal \cite{mikolov13}, sementara \textit{pointwise mutual information} mengukur kekuatan asosiasi dua kata dari statistik kemunculan bersama \cite{church90}. Kedua kerangka ini memungkinkan estimasi kedekatan makna sepenuhnya dari data latih tanpa bobot pralatih.
+\textbf{Klasifikasi Sentimen dan \textit{Macro F1}.} Analisis sentimen memetakan teks ke dalam kategori yang merepresentasikan polaritas opini. Pada penelitian ini, ruang label dinyatakan sebagai $\mathcal{C}=\{\texttt{NEGATIF},\texttt{NETRAL},\texttt{POSITIF}\}$. Karena kontribusi setiap kelas perlu dinilai secara setara, metrik utama yang digunakan adalah \textit{Macro F1}. Untuk kelas $c$, presisi $P_c$ dan \textit{recall} $R_c$ dihitung dari \textit{true positive} ($TP_c$), \textit{false positive} ($FP_c$), dan \textit{false negative} ($FN_c$). Nilai akhirnya dirumuskan sebagai
+\begin{equation}
+\begin{aligned}
+P_c&=\frac{TP_c}{TP_c+FP_c},\qquad
+R_c=\frac{TP_c}{TP_c+FN_c},\\
+F1_{\mathrm{macro}}&=\frac{1}{|\mathcal{C}|}
+\sum_{c\in\mathcal{C}}\frac{2P_cR_c}{P_c+R_c}.
+\end{aligned}
+\end{equation}
+Perataan antarkelas membuat peningkatan pada kelas yang lebih sering muncul tidak dapat sepenuhnya menutupi kinerja yang rendah pada kelas lain.
 
-\textbf{Penyelarasan Urutan dan Pemeringkatan Relatif}. Selain kosakata, urutan informasi membawa makna struktural. Penyelarasan rangkaian yang berakar pada pencocokan biologi komputasional \cite{needleman70} dan korelasi peringkat Kendall tau \cite{kendall38} menyediakan kerangka untuk mengukur konsistensi urutan, relevan karena berita konvensional mengikuti gaya piramida terbalik sehingga penyimpangan pola monoton menjadi sinyal struktural. Teori \textit{learning to rank} \cite{liu09}, yang berakar pada hukum penilaian komparatif Thurstone \cite{thurstone27}, menunjukkan bahwa perbandingan relatif antar kandidat sering lebih diskriminatif daripada penilaian mutlak satu kandidat secara terisolasi.
+\textbf{Representasi Leksikal TF--IDF.} TF--IDF merepresentasikan dokumen melalui kepentingan relatif sebuah term terhadap seluruh korpus \cite{salton88}. Untuk term $t$, dokumen $d$, dan korpus berukuran $N$, bobot dasarnya dinyatakan sebagai
+\begin{equation}
+\operatorname{tfidf}(t,d)=\operatorname{tf}(t,d)
+\log\!\left(\frac{N}{\operatorname{df}(t)}\right),
+\end{equation}
+dengan $\operatorname{tf}(t,d)$ sebagai frekuensi term pada dokumen dan $\operatorname{df}(t)$ sebagai jumlah dokumen yang memuat term tersebut. N-gram kata menangkap frasa pendek, sedangkan n-gram karakter mempertahankan informasi subkata, variasi ejaan, dan sebagian pola angka. Kedua representasi menghasilkan vektor jarang yang sesuai untuk teks singkat.
 
-\textbf{Encoder Neural, Atensi, dan Augmentasi Data}. \textit{Gated recurrent unit} memodelkan ketergantungan sekuensial secara hemat parameter \cite{cho14}, sedangkan mekanisme atensi membentuk penyelarasan lunak dinamis antar-elemen dua rangkaian \cite{bahdanau14}. \textit{Enhanced Sequential Inference Model} menggabungkan keduanya melalui atensi silang sebelum komposisi \cite{chen17}, merepresentasikan paradigma \textit{cross-encoder} yang menangkap interaksi berbutir halus, berbeda dari \textit{bi-encoder} yang mengorbankan kedalaman interaksi demi efisiensi. Untuk memperkaya data latih pada kelas minoritas, pembangkitan contoh negatif melalui perturbasi terkendali \cite{vincent08} dapat diarahkan pada tipologi kesalahan nyata seperti pertukaran entitas, negasi, dan permutasi urutan, tanpa bergantung pada model generatif pralatih.
+\textbf{Support Vector Classification.} Support Vector Machine mencari bidang pemisah dengan margin besar dan memperbolehkan pelanggaran margin melalui variabel slack \cite{cortes95}. Untuk kasus biner, optimasi \textit{soft margin} dapat ditulis sebagai
+\begin{equation}
+\min_{\mathbf{w},b,\boldsymbol{\xi}}
+\frac{1}{2}\lVert\mathbf{w}\rVert^2+C\sum_{i=1}^{n}\xi_i,
+\quad
+y_i(\mathbf{w}^{\top}\phi(\mathbf{x}_i)+b)\geq 1-\xi_i.
+\end{equation}
+Pemetaan $\phi(\cdot)$ tidak perlu dihitung secara eksplisit apabila digunakan fungsi kernel. Kernel radial basis function mengukur kedekatan dua vektor melalui
+\begin{equation}
+K(\mathbf{x},\mathbf{x}')=
+\exp\!\left(-\gamma\lVert\mathbf{x}-\mathbf{x}'\rVert^2\right).
+\end{equation}
+Untuk klasifikasi multikelas, beberapa pemisah biner digabungkan dan kelas dengan skor keputusan tertinggi dipilih sebagai prediksi.
 
+\textbf{Transformer dan Encoder Bahasa Pralatih.} Transformer membentuk representasi kontekstual dengan mekanisme \textit{self-attention} \cite{vaswani17}. Untuk matriks \textit{query} $Q$, \textit{key} $K$, dan \textit{value} $V$ berdimensi $d_k$, operasi perhatian dirumuskan sebagai
+\begin{equation}
+\operatorname{Attention}(Q,K,V)=
+\operatorname{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V.
+\end{equation}
+Setiap token memperoleh representasi berdasarkan hubungannya dengan token lain dalam kalimat. Representasi keluaran kemudian diproyeksikan menjadi logit $\mathbf{z}$ dan diubah menjadi probabilitas kelas melalui $p_c=\exp(z_c)/\sum_j\exp(z_j)$.
+
+IndoBERT menyediakan representasi yang dipralatih khusus untuk bahasa Indonesia melalui korpus dan tugas pada IndoNLU \cite{wilie20}. XLM-R mempelajari representasi lintas bahasa dari korpus multibahasa berskala besar \cite{conneau20}, sedangkan XLM-T melanjutkan prapelatihan pada data Twitter multibahasa agar lebih sesuai dengan bahasa media sosial dan tugas sentimen \cite{barbieri22}. Perbedaan sumber pralatih tersebut dapat menghasilkan pola kesalahan yang berbeda ketika model diadaptasi pada teks ekonomi Indonesia.
+
+\textbf{Ensemble Probabilistik.} Ensemble menggabungkan beberapa model untuk mengurangi ketergantungan keputusan pada satu jenis representasi. Jika $M$ model menghasilkan distribusi probabilitas $\mathbf{p}^{(m)}(x)$, rata-rata berbobot sama diberikan oleh
+\begin{equation}
+\bar{\mathbf{p}}(x)=\frac{1}{M}\sum_{m=1}^{M}\mathbf{p}^{(m)}(x),
+\qquad
+\hat{y}=\arg\max_{c\in\mathcal{C}}\bar{p}_c(x).
+\end{equation}
+Perataan bermanfaat ketika anggota ensemble membawa informasi yang saling melengkapi, tetapi tidak menjamin peningkatan apabila seluruh model menghasilkan kesalahan yang sama.
+
+\textbf{Pseudo-labeling dan Gerbang Keyakinan.} \textit{Pseudo-labeling} menggunakan prediksi model pada data tanpa label sebagai target tambahan. Seleksi berbasis ambang keyakinan merupakan cara umum untuk mengurangi pemakaian target semu yang tidak pasti \cite{sohn20}. Untuk probabilitas \textit{teacher} $\mathbf{p}_T(x)$, label dan keyakinan semu dinyatakan sebagai
+\begin{equation}
+\tilde{y}(x)=\arg\max_c p_{T,c}(x),\qquad
+q(x)=\max_c p_{T,c}(x).
+\end{equation}
+Sampel dapat dipakai apabila $q(x)\geq\tau$, dengan $\tau$ sebagai ambang yang ditetapkan. Gerbang tambahan berupa kesepakatan dengan model dari keluarga representasi berbeda dapat memperketat seleksi, tetapi kualitas label semu tetap bergantung pada kesalahan kedua model. Oleh karena itu, skor dari proses ini perlu dinilai sebagai mekanisme penyaringan, bukan bukti bahwa label semu selalu benar.
+
+\textbf{R-Drop dan \textit{Token Masking}.} Dropout menghasilkan submodel yang berbeda pada setiap lintasan maju. R-Drop mendorong dua distribusi keluaran dari masukan yang sama agar konsisten dengan menambahkan divergensi Kullback--Leibler dua arah \cite{liang21}. Untuk dua keluaran $\mathbf{p}_1$ dan $\mathbf{p}_2$, fungsi kerugiannya ditulis sebagai
+\begin{equation}
+\begin{aligned}
+\mathcal{L}_{\mathrm{RDrop}}
+&=\frac{1}{2}\bigl[\mathcal{L}_{\mathrm{CE}}(\mathbf{p}_1,y)
++\mathcal{L}_{\mathrm{CE}}(\mathbf{p}_2,y)\bigr]\\
+&\quad+\frac{\alpha}{2}\bigl[D_{\mathrm{KL}}(\mathbf{p}_1\|\mathbf{p}_2)
++D_{\mathrm{KL}}(\mathbf{p}_2\|\mathbf{p}_1)\bigr].
+\end{aligned}
+\end{equation}
+\textit{Token masking} melengkapi regularisasi tersebut dengan mengganti sebagian token nonspesial menggunakan token mask selama pelatihan. Perturbasi ini mencegah model bergantung penuh pada satu token, sementara teks asli tetap digunakan pada validasi dan inferensi.
