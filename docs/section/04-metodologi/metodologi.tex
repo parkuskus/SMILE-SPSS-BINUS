@@ -1,3 +1,131 @@
 \section{METODOLOGI}
 
-% Isi bagian ini belum disusun.
+\subsection{Rancangan dan Data}
+Penelitian ini mengembangkan pengklasifikasi tiga kelas untuk teks pada kolom
+\texttt{kalimat}. Data latih berisi 1.526 contoh berlabel dan data uji berisi
+654 contoh tanpa label. Kolom \texttt{id} hanya dipakai untuk mempertahankan
+urutan baris saat ekspor dan tidak menjadi fitur. Urutan kelas pada seluruh
+komponen ditetapkan sebagai \texttt{NEGATIF}, \texttt{NETRAL}, dan
+\texttt{POSITIF}. Tidak ada data uji berlabel atau data berlabel eksternal
+yang digunakan.
+
+Alur GARUDA terdiri atas empat langkah. Pertama, sebuah SVC leksikal dan tiga
+encoder kontekstual dilatih pada data berlabel. Kedua, probabilitas tiga
+encoder dirata-ratakan menjadi prediksi \textit{teacher}. Ketiga, sebagian
+teks uji yang memenuhi gerbang keyakinan, kesepakatan leksikal, dan kemiripan
+teks ditambahkan sebagai label semu untuk melatih \textit{student}. Keempat,
+probabilitas SVC dan empat encoder dirata-ratakan untuk menghasilkan prediksi
+akhir. Rangkaian tersebut menggunakan label semu keras; student tidak dilatih
+dengan pencocokan distribusi lunak terhadap teacher.
+
+\subsection{Prapemrosesan dan Protokol Validasi}
+Tidak ada stemming, penghapusan kata negasi, ataupun penggantian angka karena
+angka dan konteks negasi dapat mengubah makna berita ekonomi. Untuk IndoBERT
+dan student Twitter XLM-R, teks di-decode dari entitas HTML, dinormalisasi
+dengan Unicode NFKC, diubah menjadi huruf kecil, lalu spasinya dirapikan.
+Twitter XLM-R Sentiment dan XLM-R Large menerima teks asli. Tokenisasi memakai
+tokenizer yang sesuai dengan checkpoint dan pemotongan dilakukan pada batas
+panjang setiap model di Tabel~\ref{tab:resep-garuda}. Pemeriksaan notebook
+melaporkan tidak ada input train atau test yang terpotong pada batas tersebut.
+
+Validasi menggunakan lipatan pertama dari \textit{StratifiedKFold} lima
+lipatan dengan \textit{shuffle} dan \textit{seed} 42. Dari 1.526 contoh,
+lipatan validasi berisi 306 contoh. Untuk mengurangi kemiripan lintas bagian,
+setiap contoh kandidat pada bagian latih dikeluarkan bila teks ternormalisasi
+identik dengan teks validasi atau memiliki Jaccard token sedikitnya 0,90
+terhadap salah satu teks validasi. Aturan berbasis teks yang sama membatasi
+kandidat pseudo-label validasi. Setelah penyaringan, 1.219 contoh digunakan
+untuk melatih model pada eksperimen validasi. TF--IDF di-fit hanya pada bagian
+latih aktif, sementara label validasi tidak digunakan untuk memilih epoch.
+Lipatan ini pernah digunakan pada tahap pengembangan; karena itu Macro F1-nya
+diperlakukan sebagai diagnostik internal, bukan estimasi independen pada
+\textit{holdout} yang belum pernah diperiksa.
+
+\subsection{Anggota Model}
+Jalur kontekstual memakai checkpoint IndoBERT Large p2, Twitter XLM-R Base
+Sentiment, XLM-R Large, dan Twitter XLM-R Large 2022. ID repositori checkpoint,
+revisi, dan checksum berkas dicatat dalam konfigurasi serta manifest notebook.
+Sumber-sumber tersebut mewakili pralatih bahasa Indonesia, multilingual, serta data Twitter dan sentimen
+\cite{wilie20,conneau20,barbieri22}. Jalur leksikal menggunakan
+representasi TF--IDF kata dan karakter, lalu klasifikasi SVC dengan kernel
+RBF \cite{salton88,cortes95}. Tabel~\ref{tab:resep-garuda} merangkum resep
+yang benar-benar dipakai notebook.
+
+\begin{table}[t]
+\caption{Komponen dan resep model GARUDA}
+\label{tab:resep-garuda}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{0.17\columnwidth}p{0.29\columnwidth}p{0.48\columnwidth}@{}}
+\toprule
+Anggota & Representasi atau checkpoint & Konfigurasi utama \\
+\midrule
+SVC & TF--IDF word (1--2) dan char (3--5) & RBF, $C=1$; char \texttt{min\_df=2} \\
+IndoBERT & Large p2 & 6 epoch; $L_{\max}=96$; LR $2\times10^{-5}$; head $5\times10^{-5}$; LLRD 0,9; R-Drop 0,5 \\
+Twt. Base & XLM-R Base Sentiment & 6 epoch; $L_{\max}=96$; LR dan head $2\times10^{-5}$ \\
+XLM-R & Large & 6 epoch; $L_{\max}=64$; LR $1\times10^{-5}$; head $5\times10^{-5}$ \\
+Student & Twitter XLM-R Large 2022 & 6 epoch; $L_{\max}=96$; LR $1\times10^{-5}$; head $5\times10^{-5}$; masking 0,1; R-Drop 0,5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+LR menyatakan \textit{learning rate} backbone; LR head adalah laju untuk
+classifier dan pooler (atau classifier pada resep XLM-R lama). Untuk
+IndoBERT, \textit{layer-wise learning-rate decay} (LLRD) mengalikan laju
+setiap lapisan dengan faktor 0,9 secara bertingkat dari head menuju embedding.
+Resep berpanjang jadwal delapan epoch tetap berhenti setelah enam epoch;
+XLM-R Large memakai jadwal enam epoch. Tidak dilakukan pemilihan checkpoint
+berdasarkan skor validasi.
+
+\subsection{Teacher dan Seleksi Label Semu}
+Pada suatu split, teacher dibentuk dari IndoBERT, Twitter XLM-R Base Sentiment,
+dan XLM-R Large yang masing-masing di-fine-tune pada label resmi split
+pelatihan. Ketiga keluaran softmax diberi bobot sama:
+\begin{equation}
+\begin{aligned}
+\mathbf{p}_{T}(x)=\frac{1}{3}\bigl(&\mathbf{p}_{\mathrm{IndoBERT}}(x)+
+\mathbf{p}_{\mathrm{TwitterSent}}(x)\\
+&+\mathbf{p}_{\mathrm{XLMR}}(x)\bigr).
+\end{aligned}
+\end{equation}
+Prediksi leksikal berasal dari softmax atas skor keputusan SVC; skor ini
+digunakan untuk mengambil kelas dengan nilai tertinggi, bukan sebagai
+probabilitas yang dikalibrasi. Teks uji $x$ diterima sebagai kandidat hanya
+jika keyakinan maksimum teacher sedikitnya 0,95, kelas teacher sama dengan
+kelas SVC, dan Jaccard token $x$ terhadap setiap teks validasi kurang dari
+0,90. Dengan demikian, kesepakatan dua jalur dan pemeriksaan kemiripan
+menentukan pemakaian label semu, bukan keyakinan teacher saja.
+
+\subsection{Pelatihan dan Prediksi Akhir}
+Student adalah Twitter XLM-R Large 2022 yang selalu diinisialisasi kembali
+dari checkpoint pralatih awal. Student dilatih pada gabungan contoh berlabel
+resmi dan contoh uji yang lolos gerbang; target pseudo-label berupa kelas
+\textit{teacher} dengan bobot kerugian yang sama seperti contoh berlabel.
+Seluruh encoder menggunakan \textit{cross-entropy} tanpa bobot kelas, AdamW,
+\textit{weight decay} 0,01 (kecuali bias dan LayerNorm), \textit{warmup}
+10\%, jadwal laju kosinus, dan pemotongan norma gradien sebesar 1,0. Ukuran
+\textit{batch} adalah 16. Parameter disimpan dalam FP32, sedangkan lintasan
+maju memakai \textit{autocast} BF16. Pada IndoBERT, laju belajar lapisan
+encoder mengikuti LLRD pada Tabel~\ref{tab:resep-garuda}. R-Drop menghitung
+rata-rata dua kerugian cross-entropy dan menambahkan KL simetris berbobot
+0,5. Pada student, 10\% token nonspesial secara acak diganti token mask
+selama pelatihan; transformasi ini tidak diterapkan saat prediksi.
+
+Sesudah validasi, kelima anggota dilatih ulang dari checkpoint pralatih awal
+atau estimator SVC baru menggunakan seluruh 1.526 label resmi. Student pada
+tahap ini menerima pseudo-label terpilih dari teacher yang juga dilatih ulang
+pada seluruh data resmi. Probabilitas keluaran akhir merupakan rata-rata
+berbobot sama dari lima anggota:
+\begin{equation}
+\bar{\mathbf{p}}(x)=\frac{1}{5}\sum_{m=1}^{5}\mathbf{p}^{(m)}(x),
+\qquad \hat{y}(x)=\arg\max_{c\in\mathcal{C}}\bar{p}_{c}(x).
+\end{equation}
+Urutan baris test dan kolom \texttt{id} dipertahankan saat menyimpan hasil.
+
+Pelatihan dijalankan dengan seed 42 pada Python 3.11.15, PyTorch 2.9.1+cu128,
+Transformers 5.15.1, dan GPU RTX 5060 Ti. Manifest mencatat versi, konfigurasi,
+revisi dan checksum checkpoint, hash data, serta sidik jari prediksi. Operasi
+deterministik PyTorch diaktifkan, sedangkan TF32 dan kernel attention
+non-deterministik dimatikan. Reproduksi bit demi bit hanya ditargetkan pada
+perangkat dan versi pustaka yang sama.
